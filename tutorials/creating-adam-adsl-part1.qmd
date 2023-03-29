@@ -1,6 +1,6 @@
 ---
 title: Creating ADaM Subject-Level Analysis Datasets (ADSL) with the Pharmaverse, Part 1
-date: '2023-03-30'
+date: "2023-03-30"
 ---
 
 Pharmaceutical organizations must adhere to a specific set of procedures regarding their clinical trial submissions before sharing data with regulatory agencies. One crucial step in this process is the creation of subject-level analysis datasets (ADSL) and their accompanying metadata, which must comply with the Analysis Data Model (ADaM) standards.
@@ -42,7 +42,6 @@ To begin, load the necessary packages and functions. The workshop's datasets con
 #| warning: false
 library(metacore)  # CRAN v0.1.1
 library(tidyverse) # CRAN v1.3.2
-library(admiral)   # CRAN v0.9.1
 library(haven)     # CRAN v2.5.1
 library(metatools) # CRAN v0.1.3
 library(xportr)    # CRAN v0.1.0
