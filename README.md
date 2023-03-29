@@ -2,7 +2,7 @@
 
 R is a powerful and versatile programming language widely used in clinical research and healthcare settings. It can be used for various tasks such as data cleaning, data analysis, statistical modeling, and visualization.
 
-We're excited to provide online tutorials designed for clinical workflows to help clinicians and researchers understand and implement R for their work. 
+We're excited to provide online tutorials designed for clinical workflows to help clinicians and researchers understand and implement R for their work. Our hope is overtime we will have various parts that will come together for a thorough clinical workflow. Each part has a live and interactive Posit Cloud environment preconfigured. Please click the "Launch RStudio Cloud" to work with the live code.
 
 ## Creating ADaM Subject-Level Analysis Datasets (ADSL) with the Pharmaverse, Part 1
 
