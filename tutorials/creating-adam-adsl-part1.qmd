@@ -1,0 +1,188 @@
+---
+title: Creating ADaM Subject-Level Analysis Datasets (ADSL) with the Pharmaverse, Part 1
+date: '2023-03-30'
+---
+
+Pharmaceutical organizations must adhere to a specific set of procedures regarding their clinical trial submissions before sharing data with regulatory agencies. One crucial step in this process is the creation of subject-level analysis datasets (ADSL) and their accompanying metadata, which must comply with the Analysis Data Model (ADaM) standards.
+
+To create ADaM datasets, a prespecified process that involves importing, tidying, and transforming data is required. Establishing a proper structure enables others to generate tables, listings, and figures more efficiently and ensures traceability. And by following this process, regulatory agencies can quickly review and approve a submission, which accelerates the release of safe and effective medicine to patients.
+
+Creating common ADaM datasets follows a workflow that looks something like this:
+
+* Import data that would be helpful to add to your ADaMs
+* Pull in metadata
+* Combine predecessor variables
+* Run any calculations
+* Drop unused variables
+* Export the dataset
+
+There are many different tools available that analysts can use for each step of the workflow. But often, analysts end up creating customized ways of doing things, which can be time-consuming and inefficient. Instead, it's better to use standardized processes that can be reused across different projects. This not only saves time but also ensures consistency and accuracy in the work.
+
+Noting this, representatives across Atorus, GSK, Janssen, and Roche started the [pharmaverse](https://pharmaverse.org/), a curated stack of open-source R packages for clinical reporting. The pharmaverse is a collaboration between several pharmaceutical companies and individuals to reduce duplication efforts in clinical reporting and, ultimately, shorten the drug development process.
+
+The pharmaverse provides analysts with a series of package to support the processes of clinical reporting, including building ADaM datasets. They don’t have to search for tools that serve their needs or create something from scratch. 
+
+With the pharmaverse, the workflow now looks like this:
+
+* **Import data:** use the [haven](https://haven.tidyverse.org/) package to import `.sas7bdat`files into R
+* **Pull in metadata:** use the [metacore](https://atorus-research.github.io/metacore/) package to import and hold metadata, particularly for specifications
+* **Combine predecessor variables together:** use the [metatools](https://pharmaverse.github.io/metatools/) package to enable the use of metacore objects
+* **Run any calculations / Drop unused variables:** combine the [tidyverse](https://www.tidyverse.org/), metatools, and [admiral]() for any ADaM-building needs
+* **Export the dataset:** use [xportr](https://atorus-research.github.io/xportr/) to export files that meet clinical standards
+
+This tutorial provides a brief overview of the first three steps in the workflow, covered in the [Clinical Reporting in R workshop](https://github.com/pharmaverse/r-pharma2022).
+
+## Setup project
+
+To begin, load the necessary packages and functions. The workshop's datasets consist of fake clinical data that complies with SDTM standards. We will import them from the [workshop GitHub repository](https://github.com/pharmaverse/r-pharma2022/) later on, but for now, we save all the relevant URLs in R objects.
+
+```{r}
+#| label: setup
+#| message: false
+#| warning: false
+library(metacore)  # CRAN v0.1.1
+library(tidyverse) # CRAN v1.3.2
+library(admiral)   # CRAN v0.9.1
+library(haven)     # CRAN v2.5.1
+library(metatools) # CRAN v0.1.3
+library(xportr)    # CRAN v0.1.0
+
+file_load  <- function(url, file, ext) {
+	download.file(url = url, destfile = paste0(file, ".", ext), mode = "wb", quiet = TRUE)
+}
+
+# Location of files for this walkthrough
+specs_url <- "https://github.com/pharmaverse/r-pharma2022/blob/main/specs/specs.xlsx?raw=true"
+dm_url <- "https://github.com/pharmaverse/r-pharma2022/blob/main/datasets/SDTM/dm.xpt?raw=true"
+vs_url <- "https://github.com/pharmaverse/r-pharma2022/blob/main/datasets/SDTM/vs.xpt?raw=true"
+ex_url <- "https://github.com/pharmaverse/r-pharma2022/raw/main/datasets/SDTM/ex.xpt"
+sv_url <- "https://github.com/pharmaverse/r-pharma2022/blob/main/datasets/SDTM/sv.xpt?raw=true"
+ae_url <- "https://github.com/pharmaverse/r-pharma2022/blob/main/datasets/SDTM/ae.xpt?raw=true"
+```
+
+## Hold metadata for SDTM and ADaM datasets using metacore
+
+Companies hold their predefined ADaM metadata in idiosyncratic ways, and standardizing this data became necessary to automate parts of ADaM creation. The metacore package solves by storing metacore objects in an organizational structure that standardizes specifications across organizations. It has been available on CRAN for over a year, and its developers continue to update it to comply with the latest CDISC standards.
+
+Loading metadata into the metacore object requires readers. The metacore package comes with built-in readers for common metadata formats like Pinnacle 21 (P21). Here, we can import a P21 spec into R using `spec_to_metacore()`:
+
+```{r}
+#| label: read-spec
+specs <- file_load(specs_url, "specs", "xlsx")
+metacore <- spec_to_metacore("specs.xlsx", where_sep_sheet = FALSE)
+```
+
+Immediately, we see that several columns are missing values: core, supp_flag, etc. Since we’re not creating a supplemental dataset yet, we can move on. We can remove the warnings by adding `quiet = TRUE`.
+
+## Automate dataset creation based on metacore
+
+Now we can read in the SDTM demographic (`dm`) data using `read_xpt()` from the haven package:
+
+```{r}
+#| label: read-sdtm
+dm <- file_load(dm_url, "dm", "xpt")
+dm <- read_xpt("dm.xpt")
+```
+
+We select the dataset to build using `select_dataset()`. In this case, we want the ADaM Subject-level Analysis (ADSL) dataset:
+
+```{r}
+#| label: select-adsl
+adsl_spec <- metacore %>% 
+  select_dataset("ADSL")
+
+adsl_spec
+```
+
+With metatools, we loaded our data and subset it to only contain ADSL.
+
+Now that we have the dataset to build, we can use the metatools package to automate the creation of variables from metacore objects. The next step is to combine predecessor variables. We can use metatools' `build_from_derived()` to pull in a metacore object and the list of datasets from which to build (in this case, the `dm` dataset).
+
+```{r}
+#| label: derived-fns
+# Pull together all the predecessor variables 
+adsl_pred <- build_from_derived(adsl_spec,
+                                ds_list = list("dm" = dm),
+                                keep = TRUE) %>% # Keep old name
+  filter(ARMCD %in% c("A", "P")) # Filter out anything with ARM codes other than placebo or active
+
+head(adsl_pred)
+```
+
+We can see we have 13 variables and 200 subjects. We can start building out some variables, but first, let’s see if any are missing.
+
+```{r}
+#| label: check-vars-pred
+#| error: true
+check_variables(adsl_pred, adsl_spec)
+```
+
+We are missing quite a few variables! To start, let's create the `SEXN` variable. The metacore object contains information from your spec, including control terms. We can obtain them using `get_control_term()`.
+
+```{r}
+#| label: sexn-get
+get_control_term(adsl_spec, SEXN)
+```
+
+Metatools makes it easy to code our variables without tedious if-else statements. The `create_var_from_codelist()` function helps us pull in the reference variables we need to get our desired output.
+
+```{r}
+#| label: sexn-create
+adsl_pred %>%  
+  create_var_from_codelist(adsl_spec, SEX, SEXN) %>% 
+  select(USUBJID, SEX, SEXN)
+```
+
+We can see that `F` values became `1` and `M` values became `2` under `SEXN`. We can do the same for other variables like `RACEN`, `ETHNICN`, etc., in a single pipe.
+
+```{r}
+#| label: create-all-vars
+adsl_decode <- adsl_pred %>%  
+  create_var_from_codelist(adsl_spec, SEX, SEXN) %>% 
+  create_var_from_codelist(adsl_spec, ETHNIC, ETHNICN) %>% 
+  create_var_from_codelist(adsl_spec, RACE, RACEN) %>% 
+  create_var_from_codelist(adsl_spec, COUNTRY, ACOUNTRY) %>%
+  create_var_from_codelist(adsl_spec, ARMCD, TRT01PN) %>% 
+  create_var_from_codelist(adsl_spec, ACTARMCD, TRT01AN) %>%
+  create_var_from_codelist(adsl_spec, ARMCD, TRT01P) %>% 
+  create_var_from_codelist(adsl_spec, ACTARMCD, TRT01A)
+```
+
+We can check `adsl_decode` to see if there are any other missing variables.
+
+```{r}
+#| label: check-vars-decode
+#| error: true
+check_variables(adsl_decode, adsl_spec)
+```
+
+We can also use metatools for categorization, such as with age group, with `create_cat_var()`. Like before, we provide an input variable and a reference variable, as well as name our desired output variable. We can also add a variable for decoding.
+
+```{r}
+#| label: create-age-vars
+get_control_term(adsl_spec, AGEGR1) # See age group categories
+
+adsl_decode %>% 
+  create_cat_var(adsl_spec, AGE, AGEGR1, AGEGR1N) %>% 
+  select(USUBJID, AGE, AGEGR1, AGEGR1N) %>% 
+  head()
+```
+
+We can double-check our newly created dataset's variables. 
+
+```{r}
+#| label: create-age-vars2
+#| error: true
+adsl <- adsl_decode %>% 
+  create_cat_var(adsl_spec, AGE, AGEGR1, AGEGR1N)
+
+check_variables(adsl, adsl_spec)
+```
+
+Calculations are needed to fill in the missing variables. In an upcoming tutorial, we will proceed to the next step in our workflow, which involves running the necessary calculations with [admiral](https://pharmaverse.github.io/admiral/cran-release/).
+
+## Learn more
+
+We hope you enjoyed the first tutorial on how to use the pharmaverse for creating ADaM ADSL with the pharmaverse. We showed only some of the available packages and functions; check out the breadth of the pharmaverse on the [website](https://pharmaverse.org/e2eclinical/) and peruse the provided [examples](https://examples.pharmaverse.org/).
+
+Again, we thank the instructors of Clinical Reporting in R for their [materials](https://github.com/pharmaverse/r-pharma2022). Please watch the [Day 1](https://www.youtube.com/watch?v=9eod8MLF5ys) and [Day 2](https://www.youtube.com/watch?v=rYflZhFDSZQ) recordings for more detailed information and for walkthroughs on other parts of the clinical reporting workflow.
