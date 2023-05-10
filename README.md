@@ -11,6 +11,7 @@ This tutorial is based on the Clinical Reporting in R workshop from R/Pharma 202
 Locate the tutorials in the Cloud project:
 
 `/cloud/project/tutorials/creating-adam-adsl-part1.qmd`
+
 `/cloud/project/tutorials/creating-adam-adsl-part2.qmd`
 
 
