@@ -30,7 +30,7 @@ With the pharmaverse, the workflow now looks like this:
 * **Run any calculations / Drop unused variables:** combine the [tidyverse](https://www.tidyverse.org/), metatools, and [admiral]() for any ADaM-building needs
 * **Export the dataset:** use [xportr](https://atorus-research.github.io/xportr/) to export files that meet clinical standards
 
-This tutorial provides a brief overview of the first three steps in the workflow, covered in the [Clinical Reporting in R workshop](https://github.com/pharmaverse/r-pharma2022).
+This tutorial provides a brief overview of the workflow, covered in the [Clinical Reporting in R workshop](https://github.com/pharmaverse/r-pharma2022).
 
 ## Setup project
 
